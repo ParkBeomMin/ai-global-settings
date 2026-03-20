@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x /Users/bmpark/.claude/statusline-command.sh)",
+      "WebFetch(domain:github.com)",
+      "Bash(zellij --version)",
+      "Bash(brew install:*)",
+      "Bash(source ~/.zshrc)",
+      "Bash(bash ~/.claude/panel.sh)",
+      "Bash(chmod:*)"
+    ]
+  }
+}

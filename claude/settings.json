@@ -1,0 +1,14 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node /Users/bmpark/.claude/plugins/marketplaces/claude-hud/dist/index.js"
+  },
+  "extraKnownMarketplaces": {
+    "claude-hud": {
+      "source": {
+        "source": "github",
+        "repo": "jarrodwatts/claude-hud"
+      }
+    }
+  }
+}

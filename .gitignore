@@ -1,0 +1,10 @@
+# OS
+.DS_Store
+*.swp
+
+# 인증/민감 정보
+cursor/cli-config.json
+
+# 캐시/임시 파일
+*.log
+cache/
