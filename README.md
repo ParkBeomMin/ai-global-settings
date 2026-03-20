@@ -25,6 +25,7 @@ ai-global-settings/
 │       ├── claude.kdl
 │       └── cursor.kdl
 ├── scripts/
+│   └── cursor-zellij.sh
 └── docs/
 ```
 
@@ -87,12 +88,32 @@ ln -s $REPO/wezterm/wezterm.lua ~/.config/wezterm/wezterm.lua
 ```bash
 REPO=~/workspace/ai-global-settings
 
+mkdir -p ~/.config/zellij
+
 mv ~/.config/zellij/config.kdl ~/.config/zellij/config.kdl.bak
 mv ~/.config/zellij/layouts ~/.config/zellij/layouts.bak
 
 ln -s $REPO/zellij/config.kdl ~/.config/zellij/config.kdl
 ln -s $REPO/zellij/layouts ~/.config/zellij/layouts
 ```
+
+#### Cursor Panel (Zellij 사이드 패널)
+
+```bash
+REPO=~/workspace/ai-global-settings
+
+ln -sf $REPO/cursor/panel.sh ~/.cursor/panel.sh
+```
+
+#### Shell 통합 (cursor agent + zellij)
+
+`~/.zshrc`에 아래 라인을 추가합니다:
+
+```bash
+source ~/Workspace/ai-global-settings/scripts/cursor-zellij.sh
+```
+
+이후 `cursor agent`를 실행하면 자동으로 zellij cursor 레이아웃이 적용됩니다.
 
 ### 3. 심볼릭 링크 확인
 
@@ -101,6 +122,7 @@ ls -la ~/.claude/settings.json ~/.claude/agents ~/.claude/skills ~/.claude/comma
 ls -la ~/.cursor/mcp.json ~/.cursor/agents ~/.cursor/skills ~/.cursor/rules
 ls -la ~/.config/wezterm/wezterm.lua
 ls -la ~/.config/zellij/config.kdl ~/.config/zellij/layouts
+ls -la ~/.cursor/panel.sh
 ```
 
 ## 설정 변경 후 Git에 반영

@@ -3,9 +3,11 @@ layout {
         pane focus=true command="bash" {
             args "-c" "args=$(cat /tmp/claude-args 2>/dev/null); rm -f /tmp/claude-args; exec claude $args"
         }
-        pane size="30%" command="bash" {
-            args "-c" "bash ~/.claude/panel-runner.sh"
-            borderless true
+        pane size="30%" name="Dashboard" {
+            plugin location="file:~/.config/zellij/plugins/claude_dashboard.wasm" {
+                claude_dir "/Users/bmpark/.claude"
+                plan "max5"
+            }
         }
     }
 

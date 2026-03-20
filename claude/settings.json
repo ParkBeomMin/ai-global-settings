@@ -1,7 +1,7 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "node /Users/bmpark/.claude/plugins/marketplaces/claude-hud/dist/index.js"
+    "command": "python3 /Users/bmpark/.config/zellij/plugins/statusline.py"
   },
   "extraKnownMarketplaces": {
     "claude-hud": {
