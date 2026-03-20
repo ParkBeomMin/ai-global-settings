@@ -1,0 +1,15 @@
+layout {
+    pane split_direction="vertical" {
+        pane focus=true command="bash" {
+            args "-c" "args=$(cat /tmp/cursor-args 2>/dev/null); rm -f /tmp/cursor-args; exec cursor agent $args"
+        }
+        pane size="30%" command="bash" {
+            args "-c" "while true; do clear; bash ~/.cursor/panel.sh; sleep 5; done"
+            borderless true
+        }
+    }
+
+    pane size=2 borderless=true {
+        plugin location="zellij:status-bar"
+    }
+}

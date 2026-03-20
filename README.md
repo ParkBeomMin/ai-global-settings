@@ -1,6 +1,6 @@
 # ai-global-settings
 
-Claude, Cursor, WezTerm 전역 설정을 Git으로 관리하는 레포지토리입니다.
+Claude, Cursor, WezTerm, Zellij 전역 설정을 Git으로 관리하는 레포지토리입니다.
 
 ## 폴더 구조
 
@@ -19,6 +19,11 @@ ai-global-settings/
 │   └── rules/
 ├── wezterm/
 │   └── wezterm.lua
+├── zellij/
+│   ├── config.kdl
+│   └── layouts/
+│       ├── claude.kdl
+│       └── cursor.kdl
 ├── scripts/
 └── docs/
 ```
@@ -77,12 +82,25 @@ mv ~/.config/wezterm/wezterm.lua ~/.config/wezterm/wezterm.lua.bak
 ln -s $REPO/wezterm/wezterm.lua ~/.config/wezterm/wezterm.lua
 ```
 
+#### Zellij
+
+```bash
+REPO=~/workspace/ai-global-settings
+
+mv ~/.config/zellij/config.kdl ~/.config/zellij/config.kdl.bak
+mv ~/.config/zellij/layouts ~/.config/zellij/layouts.bak
+
+ln -s $REPO/zellij/config.kdl ~/.config/zellij/config.kdl
+ln -s $REPO/zellij/layouts ~/.config/zellij/layouts
+```
+
 ### 3. 심볼릭 링크 확인
 
 ```bash
 ls -la ~/.claude/settings.json ~/.claude/agents ~/.claude/skills ~/.claude/commands
 ls -la ~/.cursor/mcp.json ~/.cursor/agents ~/.cursor/skills ~/.cursor/rules
 ls -la ~/.config/wezterm/wezterm.lua
+ls -la ~/.config/zellij/config.kdl ~/.config/zellij/layouts
 ```
 
 ## 설정 변경 후 Git에 반영
