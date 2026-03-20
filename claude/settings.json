@@ -1,14 +1,1 @@
-{
-  "statusLine": {
-    "type": "command",
-    "command": "python3 /Users/bmpark/.config/zellij/plugins/statusline.py"
-  },
-  "extraKnownMarketplaces": {
-    "claude-hud": {
-      "source": {
-        "source": "github",
-        "repo": "jarrodwatts/claude-hud"
-      }
-    }
-  }
-}
+{}
