@@ -48,12 +48,16 @@ mv ~/.claude/settings.json ~/.claude/settings.json.bak
 mv ~/.claude/agents ~/.claude/agents.bak
 mv ~/.claude/skills ~/.claude/skills.bak
 mv ~/.claude/commands ~/.claude/commands.bak
+mv ~/.claude/panel.sh ~/.claude/panel.sh.bak
+mv ~/.claude/panel-runner.sh ~/.claude/panel-runner.sh.bak
 
 # 심볼릭 링크 생성
 ln -s $REPO/claude/settings.json ~/.claude/settings.json
 ln -s $REPO/claude/agents ~/.claude/agents
 ln -s $REPO/claude/skills ~/.claude/skills
 ln -s $REPO/claude/commands ~/.claude/commands
+ln -s $REPO/claude/panel.sh ~/.claude/panel.sh
+ln -s $REPO/claude/panel-runner.sh ~/.claude/panel-runner.sh
 ```
 
 #### Cursor
@@ -65,11 +69,13 @@ mv ~/.cursor/mcp.json ~/.cursor/mcp.json.bak
 mv ~/.cursor/agents ~/.cursor/agents.bak
 mv ~/.cursor/skills ~/.cursor/skills.bak
 mv ~/.cursor/rules ~/.cursor/rules.bak
+mv ~/.cursor/panel.sh ~/.cursor/panel.sh.bak
 
 ln -s $REPO/cursor/mcp.json ~/.cursor/mcp.json
 ln -s $REPO/cursor/agents ~/.cursor/agents
 ln -s $REPO/cursor/skills ~/.cursor/skills
 ln -s $REPO/cursor/rules ~/.cursor/rules
+ln -s $REPO/cursor/panel.sh ~/.cursor/panel.sh
 ```
 
 #### WezTerm
@@ -97,8 +103,8 @@ ln -s $REPO/zellij/layouts ~/.config/zellij/layouts
 ### 3. 심볼릭 링크 확인
 
 ```bash
-ls -la ~/.claude/settings.json ~/.claude/agents ~/.claude/skills ~/.claude/commands
-ls -la ~/.cursor/mcp.json ~/.cursor/agents ~/.cursor/skills ~/.cursor/rules
+ls -la ~/.claude/settings.json ~/.claude/agents ~/.claude/skills ~/.claude/commands ~/.claude/panel.sh ~/.claude/panel-runner.sh
+ls -la ~/.cursor/mcp.json ~/.cursor/agents ~/.cursor/skills ~/.cursor/rules ~/.cursor/panel.sh
 ls -la ~/.config/wezterm/wezterm.lua
 ls -la ~/.config/zellij/config.kdl ~/.config/zellij/layouts
 ```
