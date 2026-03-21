@@ -23,3 +23,16 @@ cursor() {
     command cursor "$@"
   fi
 }
+
+agent() {
+  if [ -z "$ZELLIJ" ]; then
+    if [ $# -gt 0 ]; then
+      echo "$*" > /tmp/cursor-args
+    else
+      rm -f /tmp/cursor-args
+    fi
+    zellij --layout cursor
+  else
+    command agent "$@"
+  fi
+}

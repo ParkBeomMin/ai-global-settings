@@ -5,7 +5,7 @@ description: Write or append notes to the user's Obsidian vault. Use when the us
 
 Write content to the user's Obsidian vault based on the current conversation context.
 
-**Vault base path:** `/Users/bmpark/Documents/범민/`
+**Vault base path:** `~/Documents/범민/`
 
 **Instructions:**
 

@@ -1,7 +1,7 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "python3 /Users/bmpark/.config/zellij/plugins/statusline.py"
+    "command": "bash ~/.claude/statusline.sh"
   },
   "extraKnownMarketplaces": {
     "claude-hud": {

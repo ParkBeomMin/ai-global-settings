@@ -5,15 +5,16 @@ RESET='\033[0m'
 DIM='\033[2m'
 BOLD='\033[1m'
 BLUE='\033[38;5;74m'
-GREEN='\033[38;5;114m'
+GREEN='\033[38;5;82m'
 YELLOW='\033[38;5;179m'
 RED='\033[38;5;203m'
 MUTED='\033[38;5;245m'
 WHITE='\033[97m'
 CYAN='\033[38;5;110m'
 ORANGE='\033[38;5;208m'
+PURPLE='\033[38;5;141m'
 
-WIDTH=34
+WIDTH=32
 
 divider() {
   printf "${DIM}"
@@ -26,9 +27,19 @@ build_bar() {
   local filled=$(echo "$pct $width" | awk '{printf "%d", ($1/100)*$2 + 0.5}')
   local empty=$((width - filled))
   local bar=""
-  for ((i=0; i<filled; i++)); do bar="${bar}█"; done
+  for ((i=0; i<filled; i++)); do
+    local pos=$(( (i + 1) * 100 / width ))
+    if   [ "$pos" -le 40 ]; then bar="${bar}\033[38;5;82m█"   # 밝은 초록
+    elif [ "$pos" -le 60 ]; then bar="${bar}\033[38;5;118m█"  # 연두
+    elif [ "$pos" -le 75 ]; then bar="${bar}\033[38;5;226m█"  # 노랑
+    elif [ "$pos" -le 88 ]; then bar="${bar}\033[38;5;208m█"  # 주황
+    else                         bar="${bar}\033[38;5;196m█"  # 빨강
+    fi
+  done
+  bar="${bar}\033[38;5;238m"
   for ((i=0; i<empty; i++)); do bar="${bar}░"; done
-  echo "$bar"
+  bar="${bar}${RESET}"
+  printf "%b" "$bar"
 }
 
 color_for_pct() {
@@ -68,151 +79,211 @@ truncate_path() {
   fi
 }
 
-STATUS_FILE="/tmp/claude-status.json"
+# statusline.json이 가리키는 현재 세션 트랜스크립트를 읽음
+STATUS_FILE="${ZELLIJ_SESSION_NAME:+/tmp/claude-status-${ZELLIJ_SESSION_NAME}.json}"
+STATUS_FILE="${STATUS_FILE:-$HOME/.claude/statusline.json}"
+CURRENT_TRANSCRIPT=$(jq -r '.transcript_path // empty' "$STATUS_FILE" 2>/dev/null)
 
-# ── 실행 중인 툴/에이전트 감지 ────────────────
-RUNNING_TOOLS=""
-if [ -f "$STATUS_FILE" ]; then
-  TRANSCRIPT=$(jq -r '.transcript_path // empty' "$STATUS_FILE" 2>/dev/null)
-  if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
-    RUNNING_TOOLS=$(jq -rs '
-      [.[] | select(.message != null) | .message.content // [] | .[]] as $all |
-      ($all | map(select(.type == "tool_use")) | map({id: .id, name: .name})) as $uses |
-      ($all | map(select(.type == "tool_result")) | map(.tool_use_id)) as $done |
-      $uses[] | select(.id as $id | ($done | contains([$id])) | not) | .name
-    ' "$TRANSCRIPT" 2>/dev/null | sort -u | tr '\n' '|')
-  fi
+# 트랜스크립트에서 최신 세션 데이터 추출
+SESSION_DATA=""
+if [ -n "$CURRENT_TRANSCRIPT" ] && [ -f "$CURRENT_TRANSCRIPT" ]; then
+  SESSION_DATA=$(python3 - "$CURRENT_TRANSCRIPT" "$STATUS_FILE" <<'PYEOF'
+import json, sys
+from pathlib import Path
+
+transcript_path, status_path = sys.argv[1], sys.argv[2]
+
+# 트랜스크립트에서 최신 usage + cwd + model 추출
+usage, cwd, model_name = {}, "", ""
+with open(transcript_path, encoding="utf-8") as f:
+    for line in f:
+        try:
+            d = json.loads(line.strip())
+            if d.get("cwd"): cwd = d["cwd"]
+            msg = d.get("message", {})
+            if msg.get("model"): model_name = msg["model"]
+            u = msg.get("usage", {})
+            if u.get("cache_read_input_tokens") or u.get("input_tokens"):
+                usage = u
+        except: pass
+
+# statusline.json에서 보완 (model display name, cost 등)
+status = {}
+try:
+    with open(status_path) as f:
+        status = json.load(f)
+except: pass
+
+model_display = status.get("model", {}).get("display_name", "") or model_name
+cost = status.get("cost", {})
+
+ctx_in = usage.get("input_tokens", 0)
+ctx_cache_c = usage.get("cache_creation_input_tokens", 0)
+ctx_cache_r = usage.get("cache_read_input_tokens", 0)
+ctx_out = usage.get("output_tokens", 0)
+ctx_size = status.get("context_window", {}).get("context_window_size", 200000)
+ctx_used = ctx_in + ctx_cache_c + ctx_cache_r
+used_pct = round(ctx_used / ctx_size * 100) if ctx_size else 0
+
+total_in = status.get("context_window", {}).get("total_input_tokens", 0)
+total_out = status.get("context_window", {}).get("total_output_tokens", 0)
+total_cost = cost.get("total_cost_usd", 0)
+
+result = {
+    "model_display": model_display,
+    "cwd": cwd,
+    "ctx_used": ctx_used,
+    "ctx_size": ctx_size,
+    "used_pct": used_pct,
+    "total_tokens": total_in + total_out,
+    "total_cost": total_cost,
+}
+print(json.dumps(result))
+PYEOF
+  )
 fi
+
+# ── 실행 중인 에이전트 감지 ────────────────────
+# 최근 5분 내 수정된 모든 세션 JSONL에서
+# Task/Agent tool_use 중 tool_result 없는 것 = 아직 실행 중
+ACTIVE_AGENTS=$(python3 - <<'PYEOF'
+import json, os
+from pathlib import Path
+from datetime import datetime, timezone, timedelta
+
+projects_dir = Path.home() / ".claude" / "projects"
+cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+active = set()
+
+for jsonl in projects_dir.rglob("*.jsonl"):
+    if "subagents" in jsonl.parts:
+        continue
+    try:
+        if datetime.fromtimestamp(jsonl.stat().st_mtime, tz=timezone.utc) < cutoff:
+            continue
+        tool_uses = {}
+        tool_results = set()
+        with open(jsonl, encoding="utf-8") as f:
+            for line in f:
+                if '"Agent"' not in line and '"Task"' not in line and '"tool_result"' not in line:
+                    continue
+                try:
+                    d = json.loads(line.strip())
+                    for block in d.get("message", {}).get("content", []):
+                        if block.get("type") == "tool_use" and block.get("name") in ("Agent", "Task"):
+                            tool_uses[block["id"]] = block.get("input", {}).get("subagent_type", "")
+                        if block.get("type") == "tool_result":
+                            tool_results.add(block.get("tool_use_id", ""))
+                except Exception:
+                    pass
+        for tid, st in tool_uses.items():
+            if tid not in tool_results and st:
+                active.add(st)
+    except Exception:
+        pass
+
+print("|".join(sorted(active)))
+PYEOF
+)
 
 is_active() {
   local name="$1"
-  echo "$RUNNING_TOOLS" | tr '|' '\n' | grep -qi "$name" && return 0 || return 1
+  echo "$ACTIVE_AGENTS" | tr '|' '\n' | grep -qi "$name" && return 0 || return 1
 }
 
 # ── Header ────────────────────────────────────
-printf "\n"
-printf "  ${BOLD}${WHITE}범민${RESET}${MUTED}  %s${RESET}\n" "$(date '+%H:%M')"
-printf "  ${MUTED}%s${RESET}\n" "$(date '+%Y.%m.%d %a')"
-printf "\n"
+printf " ${BOLD}${WHITE}범민${RESET}${MUTED}  %s${RESET}\n" "$(date '+%H:%M')"
+printf " ${MUTED}%s${RESET}\n" "$(date '+%Y.%m.%d %a')"
+session_count=$(find "$HOME/.claude/projects" -name "*.jsonl" -not -path "*/subagents/*" -mmin -5 -type f 2>/dev/null | wc -l | tr -d ' ')
+printf " \033[38;5;118msessions  ${BOLD}%s${RESET}\n" "$session_count"
 divider
 
-# ── Model ─────────────────────────────────────
-printf "  ${CYAN}MODEL${RESET}\n"
-if [ -f "$STATUS_FILE" ]; then
-  model=$(jq -r '.model.display_name // "—"' "$STATUS_FILE" 2>/dev/null)
-  printf "  ${WHITE}%s${RESET}\n" "$model"
+# ── Model + Project ───────────────────────────
+if [ -n "$SESSION_DATA" ]; then
+  model=$(echo "$SESSION_DATA" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('model_display','—'))")
+  project=$(echo "$SESSION_DATA" | python3 -c "import sys,json,os; d=json.load(sys.stdin); print(os.path.basename(d.get('cwd','')))")
+  printf " ${BOLD}${PURPLE}%s${RESET}\n" "$model"
+  printf " ${BLUE}%s${RESET}\n" "$project"
 else
-  printf "  ${MUTED}—${RESET}\n"
+  printf " ${MUTED}—${RESET}\n"
 fi
-printf "\n"
 divider
 
 # ── Context Window ────────────────────────────
-printf "  ${CYAN}CONTEXT${RESET}\n"
-if [ -f "$STATUS_FILE" ]; then
-  used_pct=$(jq -r '.context_window.used_percentage // empty' "$STATUS_FILE" 2>/dev/null)
-  input_tokens=$(jq -r '.context_window.current_usage.input_tokens // empty' "$STATUS_FILE" 2>/dev/null)
-  ctx_size=$(jq -r '.context_window.context_window_size // empty' "$STATUS_FILE" 2>/dev/null)
+if [ -n "$SESSION_DATA" ]; then
+  used_pct=$(echo "$SESSION_DATA" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('used_pct',0))")
+  ctx_used=$(echo "$SESSION_DATA" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ctx_used',0))")
+  ctx_size=$(echo "$SESSION_DATA" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ctx_size',200000))")
 
-  if [ -n "$used_pct" ]; then
-    color=$(color_for_pct "$used_pct")
-    printf "  ${color}%s  %s%%${RESET}\n" "$(build_bar "$used_pct")" "$used_pct"
-    [ -n "$input_tokens" ] && [ -n "$ctx_size" ] && \
-      printf "  ${MUTED}%s / %s tokens${RESET}\n" "$input_tokens" "$ctx_size"
-  else
-    printf "  ${MUTED}no data yet${RESET}\n"
-  fi
+  color=$(color_for_pct "$used_pct")
+  printf " ${CYAN}CONTEXT${RESET}  %s  ${color}%s%%${RESET}\n" "$(build_bar "$used_pct")" "$used_pct"
+  printf " ${MUTED}%s / %s${RESET}\n" "$(printf "%'d" $ctx_used)" "$(printf "%'d" $ctx_size)"
 else
-  printf "  ${MUTED}no data yet${RESET}\n"
+  printf " ${CYAN}CONTEXT${RESET}  ${MUTED}no data yet${RESET}\n"
 fi
-printf "\n"
 divider
 
 # ── Rate Limits ───────────────────────────────
-printf "  ${CYAN}RATE LIMITS${RESET}\n\n"
+HUD_CACHE="$HOME/.claude/plugins/claude-hud/.usage-cache.json"
+iso_to_ts() { TZ=UTC date -jf "%Y-%m-%dT%H:%M:%S" "${1%.*}" "+%s" 2>/dev/null; }
 
-if [ -f "$STATUS_FILE" ]; then
-  five_pct=$(jq -r '.rate_limits.five_hour.used_percentage // empty' "$STATUS_FILE" 2>/dev/null)
-  five_reset=$(jq -r '.rate_limits.five_hour.resets_at // empty' "$STATUS_FILE" 2>/dev/null)
-  seven_pct=$(jq -r '.rate_limits.seven_day.used_percentage // empty' "$STATUS_FILE" 2>/dev/null)
-  seven_reset=$(jq -r '.rate_limits.seven_day.resets_at // empty' "$STATUS_FILE" 2>/dev/null)
+if [ -f "$HUD_CACHE" ]; then
+  five_pct=$(jq -r '.data.fiveHour // empty' "$HUD_CACHE" 2>/dev/null)
+  five_reset_iso=$(jq -r '.data.fiveHourResetAt // empty' "$HUD_CACHE" 2>/dev/null)
+  seven_pct=$(jq -r '.data.sevenDay // empty' "$HUD_CACHE" 2>/dev/null)
+  seven_reset_iso=$(jq -r '.data.sevenDayResetAt // empty' "$HUD_CACHE" 2>/dev/null)
 
-  printf "  ${MUTED}5h${RESET}\n"
   if [ -n "$five_pct" ]; then
     color=$(color_for_pct "$five_pct")
-    printf "  ${color}%s  %s%%${RESET}\n" "$(build_bar "$five_pct")" "$five_pct"
-    reset_str=$(format_reset "$five_reset")
-    [ -n "$reset_str" ] && printf "  ${MUTED}resets in %s${RESET}\n" "$reset_str"
-  else
-    printf "  ${MUTED}no data yet${RESET}\n"
+    reset_str=$(format_reset "$(iso_to_ts "$five_reset_iso")")
+    reset_disp=${reset_str:+" ${MUTED}(${reset_str})${RESET}"}
+    printf " ${MUTED}5h${RESET}  %s  ${color}%s%%${RESET}%b\n" "$(build_bar "$five_pct")" "$five_pct" "$reset_disp"
   fi
 
-  printf "\n"
-
-  printf "  ${MUTED}7d${RESET}\n"
   if [ -n "$seven_pct" ]; then
     color=$(color_for_pct "$seven_pct")
-    printf "  ${color}%s  %s%%${RESET}\n" "$(build_bar "$seven_pct")" "$seven_pct"
-    reset_str=$(format_reset "$seven_reset")
-    [ -n "$reset_str" ] && printf "  ${MUTED}resets in %s${RESET}\n" "$reset_str"
-  else
-    printf "  ${MUTED}no data yet${RESET}\n"
+    reset_str=$(format_reset "$(iso_to_ts "$seven_reset_iso")")
+    reset_disp=${reset_str:+" ${MUTED}(${reset_str})${RESET}"}
+    printf " ${MUTED}7d${RESET}  %s  ${color}%s%%${RESET}%b\n" "$(build_bar "$seven_pct")" "$seven_pct" "$reset_disp"
   fi
 else
-  printf "  ${MUTED}no data yet${RESET}\n"
+  printf " ${MUTED}no data yet${RESET}\n"
 fi
-printf "\n"
+
+if [ -n "$SESSION_DATA" ]; then
+  total_tokens=$(echo "$SESSION_DATA" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('total_tokens',0))")
+  total_cost=$(echo "$SESSION_DATA" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('total_cost',0))")
+  [ "$total_tokens" -gt 0 ] 2>/dev/null && \
+    printf " ${MUTED}$(printf "%'d" $total_tokens) tokens · \$%s${RESET}\n" "$(printf "%.4f" "$total_cost")"
+fi
 divider
 
 # ── Skills ────────────────────────────────────
-printf "  ${CYAN}SKILLS${RESET}\n"
+printf " ${CYAN}SKILLS${RESET}\n"
 SKILLS_DIR="$HOME/.claude/skills"
 if [ -d "$SKILLS_DIR" ] && [ -n "$(ls -A "$SKILLS_DIR" 2>/dev/null)" ]; then
   for skill in "$SKILLS_DIR"/*/; do
     [ -d "$skill" ] || continue
-    name=$(basename "$skill")
-    if is_active "$name"; then
-      printf "  ${ORANGE}▶${RESET}  ${WHITE}%s${RESET} ${ORANGE}(active)${RESET}\n" "$name"
-    else
-      printf "  ${MUTED}·${RESET}  %s\n" "$name"
-    fi
+    printf " ${MUTED}·${RESET} %s\n" "$(basename "$skill")"
   done
 else
-  printf "  ${MUTED}·  (none)${RESET}\n"
+  printf " ${MUTED}· (none)${RESET}\n"
 fi
-printf "\n"
 divider
 
 # ── Agents ────────────────────────────────────
-printf "  ${CYAN}AGENTS${RESET}\n"
+printf " ${CYAN}AGENTS${RESET}\n"
 AGENTS_DIR="$HOME/.claude/agents"
 if [ -d "$AGENTS_DIR" ] && [ -n "$(ls -A "$AGENTS_DIR" 2>/dev/null)" ]; then
   for agent in "$AGENTS_DIR"/*.md; do
     [ -f "$agent" ] || continue
     name=$(basename "$agent" .md)
-    if is_active "$name" || echo "$RUNNING_TOOLS" | grep -qi "task"; then
-      printf "  ${ORANGE}▶${RESET}  ${WHITE}%s${RESET} ${ORANGE}(active)${RESET}\n" "$name"
+    if is_active "$name"; then
+      printf " ${GREEN}▶ ${BOLD}${GREEN}%s${RESET} ${GREEN}●${RESET}\n" "$name"
     else
-      printf "  ${MUTED}·${RESET}  %s\n" "$name"
+      printf " ${MUTED}·${RESET} %s\n" "$name"
     fi
   done
 else
-  printf "  ${MUTED}·  (none)${RESET}\n"
+  printf " ${MUTED}· (none)${RESET}\n"
 fi
-printf "\n"
-divider
-
-# ── Directory ─────────────────────────────────
-printf "  ${CYAN}DIRECTORY${RESET}\n"
-if [ -f "$STATUS_FILE" ]; then
-  CWD=$(jq -r '.cwd // .workspace.current_dir // empty' "$STATUS_FILE" 2>/dev/null)
-  if [ -n "$CWD" ]; then
-    display=$(truncate_path "${CWD/#$HOME/\~}" 30)
-    printf "  ${BLUE}%s${RESET}\n" "$display"
-  else
-    printf "  ${MUTED}unknown${RESET}\n"
-  fi
-else
-  printf "  ${MUTED}no data yet${RESET}\n"
-fi
-printf "\n"
