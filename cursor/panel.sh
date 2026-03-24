@@ -68,44 +68,40 @@ fi
 printf "\n"
 divider
 
-# ── Skills (custom only) ─────────────────────
+# ── Skills ────────────────────────────────────
 SKILLS_DIR="$HOME/.cursor/skills"
-CUSTOM_SKILLS=(obsidian-note-writer skill-doc-sync requirements-writer prd-writer user-story-writer meeting-notes-writer api-spec-writer deployment-checklist)
-
-printf "  ${CYAN}MY SKILLS${RESET}  ${MUTED}(%s)${RESET}\n" "${#CUSTOM_SKILLS[@]}"
-
-for skill in "${CUSTOM_SKILLS[@]}"; do
-  if [ -f "$SKILLS_DIR/$skill/SKILL.md" ]; then
-    printf "  ${MUTED}·${RESET}  %s\n" "$skill"
-  fi
-done
-
-builtin_count=0
+skill_count=0
 if [ -d "$SKILLS_DIR" ]; then
-  total=$(ls -1d "$SKILLS_DIR"/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ')
-  builtin_count=$((total - ${#CUSTOM_SKILLS[@]}))
+  skill_count=$(ls -1d "$SKILLS_DIR"/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ')
 fi
-if [ "$builtin_count" -gt 0 ]; then
-  printf "  ${DIM}+ %s built-in skills${RESET}\n" "$builtin_count"
+
+printf "  ${CYAN}SKILLS${RESET}  ${MUTED}(%s)${RESET}\n" "$skill_count"
+
+if [ -d "$SKILLS_DIR" ] && [ "$skill_count" -gt 0 ]; then
+  for skill_path in "$SKILLS_DIR"/*/SKILL.md; do
+    [ -f "$skill_path" ] || continue
+    name=$(basename "$(dirname "$skill_path")")
+    printf "  ${MUTED}·${RESET}  %s\n" "$name"
+  done
+else
+  printf "  ${MUTED}·  (none)${RESET}\n"
 fi
 
 printf "\n"
 divider
 
+# ── Detect project CWD ────────────────────────
+# In Zellij, both the agent pane and the panel pane inherit
+# the same CWD from the session launch directory. So pwd is
+# the correct project directory for this specific session.
+CWD="$(pwd)"
+
 # ── Rules ─────────────────────────────────────
 printf "  ${CYAN}PROJECT RULES${RESET}\n"
-CURSOR_PID=$(pgrep -f "cursor.*agent" 2>/dev/null | head -1)
-if [ -n "$CURSOR_PID" ]; then
-  CWD=$(lsof -p "$CURSOR_PID" 2>/dev/null | awk '$4=="cwd" {print $NF}' | head -1)
-else
-  CWD=""
-fi
 
 RULES_DIR=""
-if [ -n "$CWD" ] && [ -d "$CWD/.cursor/rules" ]; then
+if [ -d "$CWD/.cursor/rules" ]; then
   RULES_DIR="$CWD/.cursor/rules"
-elif [ -d ".cursor/rules" ]; then
-  RULES_DIR=".cursor/rules"
 fi
 
 if [ -n "$RULES_DIR" ] && [ -n "$(ls -A "$RULES_DIR" 2>/dev/null)" ]; then
@@ -122,18 +118,14 @@ divider
 
 # ── Directory ─────────────────────────────────
 printf "  ${CYAN}DIRECTORY${RESET}\n"
-if [ -n "$CURSOR_PID" ] && [ -n "$CWD" ]; then
-  CWD="${CWD/#$HOME/\~}"
-  printf "  ${BLUE}%s${RESET}\n" "$CWD"
+DISPLAY_CWD="${CWD/#$HOME/\~}"
+printf "  ${BLUE}%s${RESET}\n" "$DISPLAY_CWD"
 
-  if command -v git &>/dev/null; then
-    branch=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null)
-    if [ -n "$branch" ]; then
-      printf "  ${MUTED}branch:${RESET} ${YELLOW}%s${RESET}\n" "$branch"
-    fi
+if command -v git &>/dev/null; then
+  branch=$(git -C "$CWD" branch --show-current 2>/dev/null)
+  if [ -n "$branch" ]; then
+    printf "  ${MUTED}branch:${RESET} ${YELLOW}%s${RESET}\n" "$branch"
   fi
-else
-  printf "  ${MUTED}cursor not running${RESET}\n"
 fi
 
 printf "\n"
