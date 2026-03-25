@@ -144,15 +144,15 @@ PYEOF
 fi
 
 # ── 실행 중인 에이전트 감지 ────────────────────
-# 최근 5분 내 수정된 모든 세션 JSONL에서
-# Task/Agent tool_use 중 tool_result 없는 것 = 아직 실행 중
+# parent JSONL에서 tool_result 없는 Agent tool_use = 현재 실행 중 (실시간)
 ACTIVE_AGENTS=$(python3 - <<'PYEOF'
-import json, os
+import json
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
 projects_dir = Path.home() / ".claude" / "projects"
-cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+now = datetime.now(timezone.utc)
+cutoff = now - timedelta(hours=1)
 active = set()
 
 for jsonl in projects_dir.rglob("*.jsonl"):
@@ -161,23 +161,29 @@ for jsonl in projects_dir.rglob("*.jsonl"):
     try:
         if datetime.fromtimestamp(jsonl.stat().st_mtime, tz=timezone.utc) < cutoff:
             continue
+        subagents_dir = jsonl.with_suffix("") / "subagents"
+        if not subagents_dir.is_dir():
+            continue
         tool_uses = {}
         tool_results = set()
         with open(jsonl, encoding="utf-8") as f:
             for line in f:
-                if '"Agent"' not in line and '"Task"' not in line and '"tool_result"' not in line:
+                if '"Agent"' not in line and '"tool_result"' not in line:
                     continue
                 try:
                     d = json.loads(line.strip())
                     for block in d.get("message", {}).get("content", []):
-                        if block.get("type") == "tool_use" and block.get("name") in ("Agent", "Task"):
-                            tool_uses[block["id"]] = block.get("input", {}).get("subagent_type", "")
+                        if block.get("type") == "tool_use" and block.get("name") == "Agent":
+                            tid = block.get("id", "")
+                            st = block.get("input", {}).get("subagent_type", "")
+                            if tid and st:
+                                tool_uses[tid] = st
                         if block.get("type") == "tool_result":
                             tool_results.add(block.get("tool_use_id", ""))
                 except Exception:
                     pass
         for tid, st in tool_uses.items():
-            if tid not in tool_results and st:
+            if tid not in tool_results:
                 active.add(st)
     except Exception:
         pass
