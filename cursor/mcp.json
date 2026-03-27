@@ -1,5 +1,14 @@
 {
   "mcpServers": {
+    "gws": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "gws-mcp-server",
+        "--services",
+        "drive,gmail,calendar"
+      ]
+    },
     "sequential-thinking": {
       "command": "npx",
       "args": [
@@ -10,10 +19,9 @@
     "context7": {
       "url": "https://mcp.context7.com/mcp"
     },
-   "firebase": {
+    "firebase": {
       "command": "npx",
       "args": ["-y", "firebase-tools@latest", "experimental:mcp"]
     }
-
   }
 }

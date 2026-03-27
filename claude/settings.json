@@ -1,4 +1,22 @@
 {
+  "permissions": {
+    "deny": [
+      "Bash(rm *)",
+      "Bash(rm -rf *)",
+      "Bash(rmdir *)",
+      "Bash(del *)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean *)",
+      "Bash(chmod -R *)",
+      "Bash(chown *)",
+      "Bash(mkfs*)",
+      "Bash(dd *)",
+      "Bash(truncate *)",
+      "Bash(sudo rm*)",
+      "Bash(sudo *)"
+    ]
+  },
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"

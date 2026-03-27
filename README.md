@@ -16,6 +16,8 @@ ai-global-settings/
 │   └── plugins/
 ├── cursor/
 │   ├── mcp.json
+│   ├── panel.sh
+│   ├── panel-runner.sh
 │   ├── agents/
 │   └── rules/
 ├── wezterm/
@@ -55,6 +57,7 @@ mv ~/.claude/panel-runner.sh ~/.claude/panel-runner.sh.bak
 mv ~/.claude/statusline.sh ~/.claude/statusline.sh.bak
 
 # 심볼릭 링크 생성
+ln -s $REPO/claude/CLAUDE.md ~/.claude/CLAUDE.md
 ln -s $REPO/claude/settings.json ~/.claude/settings.json
 ln -s $REPO/claude/settings.local.json ~/.claude/settings.local.json
 ln -s $REPO/claude/agents ~/.claude/agents
@@ -75,12 +78,14 @@ mv ~/.cursor/agents ~/.cursor/agents.bak
 mv ~/.cursor/skills ~/.cursor/skills.bak
 mv ~/.cursor/rules ~/.cursor/rules.bak
 mv ~/.cursor/panel.sh ~/.cursor/panel.sh.bak
+mv ~/.cursor/panel-runner.sh ~/.cursor/panel-runner.sh.bak
 
 ln -s $REPO/cursor/mcp.json ~/.cursor/mcp.json
 ln -s $REPO/cursor/agents ~/.cursor/agents
 ln -s $REPO/skills ~/.cursor/skills
 ln -s $REPO/cursor/rules ~/.cursor/rules
 ln -s $REPO/cursor/panel.sh ~/.cursor/panel.sh
+ln -s $REPO/cursor/panel-runner.sh ~/.cursor/panel-runner.sh
 ```
 
 #### WezTerm
@@ -113,6 +118,7 @@ ln -s $REPO/zellij/layouts ~/.config/zellij/layouts
 REPO=~/workspace/ai-global-settings
 
 ln -sf $REPO/cursor/panel.sh ~/.cursor/panel.sh
+ln -sf $REPO/cursor/panel-runner.sh ~/.cursor/panel-runner.sh
 ```
 
 #### Shell 통합 (zellij 자동 실행)
@@ -137,7 +143,7 @@ source ~/.cursor/cursor-zellij.sh
 
 ```bash
 ls -la ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude/agents ~/.claude/skills ~/.claude/commands ~/.claude/panel.sh ~/.claude/panel-runner.sh ~/.claude/statusline.sh ~/.claude/claude-zellij.sh
-ls -la ~/.cursor/mcp.json ~/.cursor/agents ~/.cursor/skills ~/.cursor/panel.sh ~/.cursor/cursor-zellij.sh
+ls -la ~/.cursor/mcp.json ~/.cursor/agents ~/.cursor/skills ~/.cursor/panel.sh ~/.cursor/panel-runner.sh ~/.cursor/cursor-zellij.sh
 # skills는 동일한 경로를 가리켜야 함
 # ~/.claude/skills -> ai-global-settings/skills
 # ~/.cursor/skills -> ai-global-settings/skills

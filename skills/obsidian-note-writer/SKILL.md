@@ -64,7 +64,7 @@ Before writing, always:
 
 ## Skill Documentation Rule
 
-When a **new Cursor skill** is created (anywhere under `~/.cursor/skills/`):
+When a **new Cursor skill** is added (in **ai-global-settings** `skills/<name>/`, or under `~/.cursor/skills/` when that path is symlinked to the repo `skills/`):
 1. Create a Korean reference doc at `AI 활용/Cursor/Skills/<skill-name>.md`
 2. Include: purpose, trigger keywords, how it works, usage examples.
 3. Also update the skill index table in `AI 활용/Cursor/Skills/README.md`.
